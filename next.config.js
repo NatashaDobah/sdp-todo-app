@@ -3,4 +3,4 @@ const nextConfig = {
   // No specific options needed for this lab
 };
 
-export default nextConfig;
+module.exports = nextConfig;
