@@ -13,7 +13,7 @@ export default async function Home({
   const sortBy = (sort as 'topic' | 'status' | 'due_date') || 'due_date';
 
   const tasks = showArchived
-    ? await getArchivedTasks()
+    ? await getArchivedTasks(sortBy)
     : await getTasksSortedBy(sortBy);
 
   return (

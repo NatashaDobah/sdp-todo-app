@@ -41,9 +41,9 @@ export function getActiveTasks(): Task[] {
   return stmt.all() as Task[];
 }
 
-// Get all archived tasks
-export function getArchivedTasks(): Task[] {
-  const stmt = db.prepare('SELECT * FROM tasks WHERE archived = 1 ORDER BY created_at DESC');
+// Get all archived tasks, sortable by field
+export function getArchivedTasks(sortBy: 'topic' | 'status' | 'due_date' | 'created_at' = 'created_at'): Task[] {
+  const stmt = db.prepare(`SELECT * FROM tasks WHERE archived = 1 ORDER BY ${sortBy} ASC`);
   return stmt.all() as Task[];
 }
 
