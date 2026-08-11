@@ -2,6 +2,10 @@
 
 ## Schema
 
+## Relationships
+
+This schema consists of a single `tasks` table with no foreign key relationships. Task categorization (`topic`) is stored as a free-text column rather than a normalized reference table, and status is constrained via a CHECK constraint rather than a separate lookup table — appropriate given the small, single-user scope of this app.
+
 ### tasks Table
 
 | Column | Type | Constraints | Description |

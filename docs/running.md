@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- **Node.js:** v18.17.0 or higher
+- **Node.js:** v20.0.0 or higher (Tailwind CSS v4 requires Node 20+)
 - **npm:** v9.0.0 or higher
 
 ## Quick Start
@@ -44,7 +44,7 @@ The database file `todo.db` is created automatically on first run. Data persists
 
 This project was developed and tested with:
 ```
-Node.js v18.17.0
+Node.js v24.14.0
 ```
 
 Verify your version:
