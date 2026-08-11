@@ -1,39 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SDP Todo App
+
+A local-first todo application built with Next.js and SQLite. Tasks can
+be created, sorted, archived, restored, and edited, with overdue status
+computed automatically from the due date.
 
 ## Getting Started
 
-First, run the development server:
+### Requirements
+- Node.js v20.0.0 or higher (Tailwind CSS v4 requires Node 20+)
+- npm v9.0.0 or higher
+
+### Setup
 
 ```bash
+git clone https://github.com/NatashaDobah/sdp-todo-app.git
+cd sdp-todo-app
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The SQLite database file (`todo.db`) is created automatically on first
+run in the project root, and data persists across restarts.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Running Tests
 
-## Learn More
+```bash
+npm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+Full setup details, troubleshooting, and Node version notes are in
+[`docs/running.md`](docs/running.md).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/app/` — Next.js App Router pages and components
+- `lib/` — database connection, task CRUD functions, and server actions
+- `db/schema.sql` — SQLite schema
+- `docs/` — database design, running instructions, and third-party library notes
+- `tests/` — Vitest test suite
 
 ## AI Usage Declaration
 
