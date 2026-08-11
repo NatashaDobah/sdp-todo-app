@@ -28,7 +28,7 @@ export function createTask(
     task.due_date,
     task.topic,
     task.status,
-    false
+    0
   );
   
   return Number(result.lastInsertRowid);
@@ -56,9 +56,11 @@ export function getTasksSortedBy(sortBy: 'topic' | 'status' | 'due_date'): Task[
 // Update a task
 export function updateTask(id: number, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at'>>): void {
   const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
-  const values : (string | number | boolean | null)[] = Object.values(updates);
+  const values: (string | number | null)[] = Object.values(updates).map(v =>
+    typeof v === 'boolean' ? (v ? 1 : 0) : v
+  );
   values.push(id);
-  
+
   const stmt = db.prepare(`UPDATE tasks SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
   stmt.run(...values);
 }
@@ -69,8 +71,7 @@ export function archiveTask(id: number): void {
   stmt.run(id);
 }
 
-// Check if a task is overdue (DERIVED, not stored!)
-export function isOverdue(task: Task): boolean {
-  if (task.status === 'Complete') return false;
-  return new Date(task.due_date) < new Date();
+export function restoreTask(id: number): void {
+  const stmt = db.prepare('UPDATE tasks SET archived = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+  stmt.run(id);
 }
