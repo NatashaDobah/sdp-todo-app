@@ -30,9 +30,12 @@ export function TaskForm() {
     setStatus('Todo');
   }
 
+  const inputClass =
+    "border border-gray-300 rounded p-2 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500";
+
   return (
-    <section className="bg-white rounded-lg shadow p-6 mb-8" aria-label="Create new task">
-      <h2 className="text-xl font-semibold mb-4">Create New Task</h2>
+    <section className="bg-white rounded-lg shadow p-6 mb-8 transition-shadow hover:shadow-md" aria-label="Create new task">
+      <h2 className="text-xl font-semibold mb-4 text-blue-900">Create New Task</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="sr-only" htmlFor="task-title">Title</label>
@@ -42,7 +45,7 @@ export function TaskForm() {
             placeholder="Title *"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="border rounded p-2"
+            className={inputClass}
             required
             aria-required="true"
           />
@@ -53,7 +56,7 @@ export function TaskForm() {
             placeholder="Topic *"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            className="border rounded p-2"
+            className={inputClass}
             required
             aria-required="true"
           />
@@ -63,7 +66,7 @@ export function TaskForm() {
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="border rounded p-2"
+            className={inputClass}
             required
             aria-required="true"
           />
@@ -72,7 +75,7 @@ export function TaskForm() {
             id="task-status"
             value={status}
             onChange={(e) => setStatus(e.target.value as 'Todo' | 'In-Progress' | 'Complete')}
-            className="border rounded p-2"
+            className={inputClass}
             aria-label="Task status"
           >
             <option value="Todo">Todo</option>
@@ -86,13 +89,13 @@ export function TaskForm() {
           placeholder="Description (optional)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="border rounded p-2 w-full"
+          className={`${inputClass} w-full`}
           rows={2}
           aria-label="Task description"
         />
         <button
           type="submit"
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          className="bg-blue-600 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
         >
           Add Task
         </button>
