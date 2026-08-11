@@ -1,0 +1,868 @@
+PASTED
+I'm building a Next.js + SQLite todo app. Constraints:
+- Local-only, single user, no auth
+- Tasks: title, description, due_date, topic
+- Statuses: Todo, In-Progress, Complete (fixed enum)
+- Archive = flag, NOT separate table
+- Overdue = derived at read time (due_date < NOW() AND status != 'Complete')
+- Need 3+ tests with throwaway DB
+- Need docs: third-party code, DB design, running it
+- Need 6+ commits with meaningful messages
+
+I'll be breaking this into slices. Please help me reason about each slice before generating code.
+
+The brief, broken down
+
+Stack: Next.js + SQLite, local-only, single user, no auth.
+
+Data model implications:
+
+Task: title, description, due date, topic (free-ish text or FK to a topics table — your call, document it), status (enum: Todo/In-Progress/Complete — fixed, not a data-driven table the user can edit).
+No hard delete — archive needs a flag or timestamp on the task row itself, not a separate table (rubric explicitly penalizes "copying rows elsewhere").
+Overdue is derived, not stored — computed at read time from due_date < now() AND status != Complete. Storing it as a column or a 4th status is a documented rubric failure.
+Persistence across restarts → SQLite file on disk, not in-memory.
+
+Repo requirements:
+
+≥3 tests, real behavior, one documented run command, deterministic, own throwaway DB (not your dev .db file).
+docs/: Third-Party Code (libs + one-line reason each), Database Design (tables + relationships), Running It (Node version + exact commands from clean clone).
+≥6 commits, meaningful messages, spread over multiple sessions (don't do it all in one sitting — timestamps are checked).
+README AI declarations per the policy (code-gen tools, in-line tools, review tools — or explicit non-usage lines).
+AI transcripts for planning/codegen/debugging.
+
+Functional walkthrough (28 marks, pass/fail per step): installs from README alone → create task with all 4 fields → edit + reload persists → archive removes from active list but stays viewable → sort by topic/status/due date → overdue flagged visibly, not a status → restart persists data.
+
+Suggested build order (gives you natural commit slices)
+Scaffold Next.js app + SQLite connection (e.g. better-sqlite3), migration/schema file — commit.
+Task model + create/read — commit.
+List view + sorting — commit.
+Edit + archive (flag-based) — commit.
+Overdue derivation + UI indicator — commit.
+Tests against a throwaway DB — commit.
+Docs (third-party code, DB design, running it) — commit.
+
+That's 7 natural, working-state commits already, each with a real reason in the message.
+
+Planning for the 3-hour AI-assisted assessment
+
+Since you'll start a fresh session and may need to submit unedited transcripts:
+
+Time-box in slices, same as above — don't ask for the whole app in one prompt. A single giant prompt is the failure mode the rubric penalizes, and it's also just worse engineering (you can't debug a monolith you didn't write).
+State constraints up front in your first message of the session: stack, constraints (no auth, local-first, SQLite, fixed statuses, archive-not-delete, overdue-is-derived). This satisfies "constraints stated up front" in the AI usage rubric.
+Actually reject/redirect at least once — if the AI suggests storing overdue as a column, or a status field for "Overdue," say no and explain why, and make sure that's visible in the transcript. This is a named scoring criterion, so don't fake it — but you will hit real disagreements if you're actually reviewing output.
+Ask for explanations, not just code — "why this schema/approach" prompts help you actually defend your Database Design docs, and the docs criterion rewards accuracy over both.
+Keep commits granular during the exam too — commit after each working slice, not at the end.
+Save transcripts as you go (export/copy) rather than trying to reconstruct them after.
+
+Want to start on any specific slice — e.g. I help you design the SQLite schema first, or scaffold the Next.js/SQLite wiring — where you write/decide and I review and point out issues?
+
+# Complete Breakdown: What We've Done So Far Here's a FULL summary of everything we've built, including all code and the errors we fixed. --- ## 📁 Project Structure ``` sdp-todo-app/ ├── src/ │ └── app/ │ ├── layout.tsx (Next.js layout) │ ├── globals.css
+
+PASTED
+
+I am stuck here and cannot get npm run dev to work despite many changes. Am I on the right track with what I am doing? How do I fix this? How do I proceed?
+
+Diagnosed architectural mismatch between client and server code
+Diagnosed architectural mismatch between client and server code
+
+A few things jump out — some good, one that's a real architectural problem likely driving all these cascading errors.
+Claude finished the response
+
+Diagnosed architectural mismatch between client and server code
+Diagnosed architectural mismatch between client and server code
+A few things jump out — some good, one that's a real architectural problem likely driving all these cascading errors.
+
+What's solid: the schema, the "archived flag not separate table," "overdue derived not stored" — that's all correctly matching the rubric. Semantic HTML attempt is fine too (though <menu> for button groups is a bit of a stretch — <div>/<nav> would read more naturally, but not a rubric blocker).
+
+The actual bug: page.tsx starts with 'use client' and then imports directly from lib/tasks.ts, which imports lib/db.ts, which imports better-sqlite3, fs, and path. Those are Node-only modules. A 'use client' component gets bundled to run in the browser — so Next.js tries to bundle fs/path/native SQLite bindings into client JS, and that fails. This is almost certainly the real source of your errors, not next.config.js — the "pages directory" and other messages you were chasing are likely downstream noise from this deeper break, which is why renaming configs and clearing .next didn't fix it.
+
+The fix: database code can only run on the server. In the App Router you have two clean options:
+
+Server Actions (simplest here): mark lib/tasks.ts functions as server actions ('use server'), call them from the client via form actions or startTransition.
+API routes: app/api/tasks/route.ts with GET/POST handlers, client calls fetch('/api/tasks').
+For a CRUD todo app, Server Actions is less code. Here's the shape for just createTask, so you can see the pattern and apply it to the rest yourself:
+
+typescript
+// lib/actions.ts
+'use server';
+import { createTask as dbCreateTask, getActiveTasks as dbGetActiveTasks /* etc */ } from './tasks';
+import { revalidatePath } from 'next/cache';
+
+export async function createTaskAction(formData: FormData) {
+  dbCreateTask({
+    title: formData.get('title') as string,
+    description: (formData.get('description') as string) || null,
+    due_date: formData.get('due_date') as string,
+    topic: formData.get('topic') as string,
+    status: 'Todo',
+    archived: false,
+  });
+  revalidatePath('/');
+}
+page.tsx then either becomes a server component that calls getActiveTasks() directly (no 'use client' needed for the parts that just read/display data), with a small client sub-component just for the interactive form/buttons that call the server actions.
+
+That's a meaningful restructure — not a config tweak — so before you dive in:
+
+Paste me the current exact error from npm run dev right now (not the historical ones in that doc). I want to confirm it's the client/server bundling issue and not something else stacked on top.
+What Next.js version are you on (cat package.json | grep next)? Some older App Router versions have a genuinely separate pages directory bug unrelated to this.
+Once I see the live error I can tell you exactly which files need to move server-side rather than guessing further.
+
+Is this a better code to be reusable and type safe incoparating other functionality: 'use server';
+import { createTask as dbCreateTask, getActiveTasks as dbGetActiveTasks, getArchivedTasks as dbGetArchivedTasks, getTasksSortedBy as dbGetTasksSortedBy, updateTask as dbUpdateTask, archiveTask as dbArchiveTask, Task } from './tasks';
+import { revalidatePath } from 'next/cache';
+export async function createTaskAction(data: {
+  title: string;
+  description: string | null;
+  due_date: string;
+  topic: string;
+  status: 'Todo' | 'In-Progress' | 'Complete';
+  archived: boolean;
+}) {
+  dbCreateTask(data);
+  revalidatePath('/');
+}
+export async function getActiveTasksAction(): Promise<Task[]> {
+  return dbGetActiveTasks();
+}
+export async function getArchivedTasksAction(): Promise<Task[]> {
+  return dbGetArchivedTasks();
+}
+export async function getTasksSortedByAction(sortBy: 'topic' | 'status' | 'due_date'): Promise<Task[]> {
+  return dbGetTasksSortedBy(sortBy);
+}
+export async function updateTaskAction(id: number, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at'>>) {
+  dbUpdateTask(id, updates);
+  revalidatePath('/');
+}
+export async function archiveTaskAction(id: number) {
+  dbArchiveTask(id);
+  revalidatePath('/');
+}
+export { isOverdue } from './tasks';
+
+Show more
+
+Identified structural conflicts and architectural inefficiencies in server action implementation
+Identified structural conflicts and architectural inefficiencies in server action implementation
+Yes, more reusable and type-safe than my snippet — full CRUD surface, no more formData.get() casting, and it matches your Task type properly. But there's one bug that will break your build:
+
+export { isOverdue } from './tasks'; will fail. Once a file has 'use server' at the top, Next.js requires every export to be an async function (since every export is treated as a callable server action). isOverdue is a synchronous pure function, not a server action — it doesn't touch the database — so this line will throw a build error like "only async functions are allowed to be exported in a 'use server' file."
+
+The fix is really an improvement anyway: isOverdue has no business being in a server-only file at all. It doesn't read fs, path, or the DB — it's just date logic. Pull it out into something like lib/utils.ts (no 'use server' directive) and import it straight into your client components. That way you're not even paying a server round-trip to check if something's overdue on every render.
+
+One other thing worth thinking about, not a bug but a design tradeoff: getActiveTasksAction, getArchivedTasksAction, getTasksSortedByAction being server actions means if page.tsx stays a client component, you'll fetch data via useEffect + these actions — which works, but means no server-rendered initial data (a waterfall: page loads empty, then fetches). The alternative is making the list-rendering part a server component that calls dbGetActiveTasks() directly (no action wrapper needed for reads in a server component), and only pulling the form/buttons into a small client component that calls your mutation actions (createTaskAction, updateTaskAction, archiveTaskAction). That's a bit more restructuring but is the more idiomatic App Router pattern and avoids the extra round trip.
+
+Given time constraints, do you want to keep it simple (client component + these fetch actions, accept the waterfall) or restructure into server/client split? Either is defensible — just make sure whichever one you pick, you can explain why in your docs, since "why this architecture" is exactly the kind of thing that shows up in viva/marking discussions.
+
+I want to restructure. How do I proceed?
+
+
+Devised concrete restructuring plan with code examples
+Devised concrete restructuring plan with code examples
+Good call — this is the pattern the App Router is actually built for. Here's the shape:
+
+New file structure
+lib/
+  db.ts          (unchanged - server only)
+  tasks.ts       (unchanged - server only, pure DB functions)
+  utils.ts       (NEW - isOverdue, no 'use server')
+  actions.ts     (mutation actions only now)
+app/
+  page.tsx              (SERVER component - fetches + renders list)
+  TaskForm.tsx           (CLIENT component - create form)
+  TaskItem.tsx            (CLIENT component - status/archive buttons)
+  TaskControls.tsx        (CLIENT component - sort/view toggle)
+The key idea: page.tsx becomes a server component. It calls getActiveTasks() / getTasksSortedBy() directly — no action wrapper, no useEffect, no client-side fetch. Data is ready on first paint. Only the interactive bits (form submission, button clicks) become small client components that call server actions.
+
+1. lib/utils.ts
+typescript
+import { Task } from './tasks';
+
+export function isOverdue(task: Task): boolean {
+  if (task.status === 'Complete') return false;
+  return new Date(task.due_date) < new Date();
+}
+2. lib/actions.ts — drop the read actions and the bad export
+typescript
+'use server';
+import { createTask as dbCreateTask, updateTask as dbUpdateTask, archiveTask as dbArchiveTask, Task } from './tasks';
+import { revalidatePath } from 'next/cache';
+
+export async function createTaskAction(data: Omit<Task, 'id' | 'created_at' | 'updated_at'>) {
+  dbCreateTask(data);
+  revalidatePath('/');
+}
+
+export async function updateTaskAction(id: number, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at'>>) {
+  dbUpdateTask(id, updates);
+  revalidatePath('/');
+}
+
+export async function archiveTaskAction(id: number) {
+  dbArchiveTask(id);
+  revalidatePath('/');
+}
+Every export here is async and touches the DB — valid server actions now.
+
+3. app/page.tsx — server component, reads params for sort/view
+Since it's now a server component, useState for sortBy/showArchived won't work — use URL search params instead, which is idiomatic here and gives you shareable/bookmarkable sorted views for free:
+
+tsx
+import { getActiveTasks, getArchivedTasks, getTasksSortedBy } from '../lib/tasks';
+import { TaskForm } from './TaskForm';
+import { TaskControls } from './TaskControls';
+import { TaskItem } from './TaskItem';
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; sort?: string }>;
+}) {
+  const { view, sort } = await searchParams;
+  const showArchived = view === 'archived';
+  const sortBy = (sort as 'topic' | 'status' | 'due_date') || 'due_date';
+
+  const tasks = showArchived
+    ? await getArchivedTasks()
+    : await getTasksSortedBy(sortBy);
+
+  return (
+    <main>
+      <TaskForm />
+      <TaskControls showArchived={showArchived} sortBy={sortBy} />
+      <ul>
+        {tasks.map((task) => (
+          <TaskItem key={task.id} task={task} showArchived={showArchived} />
+        ))}
+      </ul>
+    </main>
+  );
+}
+(Next 15 made searchParams a Promise — check your version; if you're on 14 it's a plain object, no await needed. Tell me your version if unsure.)
+
+4. app/TaskForm.tsx — client, calls the action directly
+tsx
+'use client';
+import { useState } from 'react';
+import { createTaskAction } from '../lib/actions';
+
+export function TaskForm() {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [topic, setTopic] = useState('');
+  const [status, setStatus] = useState<'Todo' | 'In-Progress' | 'Complete'>('Todo');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title || !dueDate || !topic) {
+      alert('Title, Due Date, and Topic are required!');
+      return;
+    }
+    await createTaskAction({
+      title, description: description || null, due_date: dueDate, topic, status, archived: false,
+    });
+    setTitle(''); setDescription(''); setDueDate(''); setTopic(''); setStatus('Todo');
+  }
+
+  // ...same form JSX you already have, just wired to this handleSubmit
+}
+Note: no loadTasks() call needed anymore — revalidatePath('/') inside the server action tells Next.js to re-render page.tsx on the server, so the list updates automatically after the action resolves.
+
+5. app/TaskItem.tsx — client, calls update/archive actions
+Same pattern: keep it a client component (needs onClick), import updateTaskAction/archiveTaskAction from lib/actions, import isOverdue from lib/utils. Structurally identical to what you have now, just swap handleArchive/handleStatusChange bodies to await archiveTaskAction(id) / await updateTaskAction(id, {...}) instead of calling the old sync functions + loadTasks().
+
+6. app/TaskControls.tsx — client, but just navigates
+tsx
+'use client';
+import { useRouter, usePathname } from 'next/navigation';
+
+export function TaskControls({ showArchived, sortBy }: { showArchived: boolean; sortBy: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  function setParam(key: string, value: string) {
+    const params = new URLSearchParams();
+    params.set(key === 'sort' ? 'sort' : 'view', value);
+    router.push(`${pathname}?${params.toString()}`);
+  }
+  // buttons/select call setParam('view', 'archived') etc.
+}
+Want to try wiring up TaskItem.tsx yourself first (it's the most mechanical of the three) and paste it back for me to check, since that's the kind of active step that'll actually show up well in your transcript?
+
+1785836890014_image.png
+This is now the error when I say npm run dev: hot-reloader-client.js:99 Console was cleared
+hydration-error-info.js:63 src\app\layout.tsx
+next/font error:
+Unknown font Geist
+console.error @ hydration-error-info.js:63
+hydration-error-info.js:63 src\app\layout.tsx
+next/font error:
+Unknown font Geist Mono
+console.error @ hydration-error-info.js:63
+:3000/favicon.ico:1  Failed to load resource: the server responded with a status of 404 (Not Found)
+What I had been doing in my terminal: 
+dobah@natasha_dobah MINGW64 ~/Desktop/Software Design Project/lab 1 - todo app/sdp-todo-app (main)
+$ rm -rf node_modules package-lock.json
+dobah@natasha_dobah MINGW64 ~/Desktop/Software Design Project/lab 1 - todo app/sdp-todo-app (main)
+$ npm install
+npm error code ERESOLVE
+npm error ERESOLVE unable to resolve dependency tree
+npm error
+npm error While resolving: sdp-todo-app@0.1.0
+npm error Found: react@19.2.4
+npm error node_modules/react
+npm error   react@"19.2.4" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer react@"^16.6.0" from next@9.5.5
+npm error node_modules/next
+npm error   next@"^9.3.3" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error C:\Users\dobah\AppData\Local\npm-cache\_logs\2026-08-04T08_52_39_225Z-eresolve-report.txt
+npm error A complete log of this run can be found in: C:\Users\dobah\AppData\Local\npm-cache\_logs\2026-08-04T08_52_39_225Z-debug-0.log
+dobah@natasha_dobah MINGW64 ~/Desktop/Software Design Project/lab 1 - todo app/sdp-todo-app (main)
+$ npm install next@latest react@latest react-dom@latest
+added 365 packages, and audited 366 packages in 2m
+145 packages are looking for funding
+  run npm fund for details
+found 0 vulnerabilities
+dobah@natasha_dobah MINGW64 ~/Desktop/Software Design Project/lab 1 - todo app/sdp-todo-app (main)
+$ npm install next@14 react@18 react-dom@18
+added 3 packages, removed 5 packages, changed 9 packages, and audited 364 packages in 43s
+143 packages are looking for funding
+  run npm fund for details
+2 high severity vulnerabilities
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run npm audit for details.
+dobah@natasha_dobah MINGW64 ~/Desktop/Software Design Project/lab 1 - todo app/sdp-todo-app (main)
+$ npm install better-sqlite3 @types/better-sqlite3
+up to date, audited 364 packages in 3s
+143 packages are looking for funding
+  run npm fund for details
+2 high severity vulnerabilities
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run npm audit for details.
+dobah@natasha_dobah MINGW64 ~/Desktop/Software Design Project/lab 1 - todo app/sdp-todo-app (main)
+$ npm run dev
+> sdp-todo-app@0.1.0 dev
+> next dev
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+ ✓ Starting...
+   We detected TypeScript in your project and reconfigured your tsconfig.json file for you. Strict-mode is set to false by default.
+   The following mandatory changes were made to your tsconfig.json:
+        - jsx was set to preserve (next.js implements its own optimized jsx transform)
+ ✓ Ready in 3.5s
+ ○ Compiling / ...
+ ⨯ src\app\layout.tsx
+next/font error:
+Unknown font Geist
+ ⨯ src\app\layout.tsx
+next/font error:
+Unknown font Geist
+ ⨯ src\app\layout.tsx
+next/font error:
+Unknown font Geist
+ GET / 500 in 11361ms
+ ⨯ src\app\layout.tsx
+next/font error:
+Unknown font Geist
+ GET /.well-known/appspecific/com.chrome.devtools.json 500 in 47ms
+My pages.tsx file: 
+
+import { getActiveTasks, getArchivedTasks, getTasksSortedBy } from '../../lib/tasks';
+import { TaskForm } from '@/app/TaskForm';
+import { TaskControls } from '@/app/TaskControls';
+import { TaskItem } from '@/app/TaskItem';
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; sort?: string }>;
+}) {
+  const { view, sort } = await searchParams;
+  const showArchived = view === 'archived';
+  const sortBy = (sort as 'topic' | 'status' | 'due_date') || 'due_date';
+
+  const tasks = showArchived
+    ? await getArchivedTasks()
+    : await getTasksSortedBy(sortBy);
+
+  return (
+    <main>
+      <TaskForm />
+      <TaskControls showArchived={showArchived} sortBy={sortBy} />
+      <ul>
+        {tasks.map((task) => (
+          <TaskItem key={task.id} task={task} showArchived={showArchived} />
+        ))}
+      </ul>
+    </main>
+  );
+}
+My TaskForm: 
+
+'use client';
+import { useState } from 'react';
+import { createTaskAction } from '../../lib/actions';
+
+export function TaskForm() {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [topic, setTopic] = useState('');
+  const [status, setStatus] = useState<'Todo' | 'In-Progress' | 'Complete'>('Todo');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title || !dueDate || !topic) {
+      alert('Title, Due Date, and Topic are required!');
+      return;
+    }
+    await createTaskAction({
+      title,
+      description: description || null,
+      due_date: dueDate,
+      topic,
+      status,
+      archived: false,
+    });
+    setTitle('');
+    setDescription('');
+    setDueDate('');
+    setTopic('');
+    setStatus('Todo');
+  }
+
+  return (
+    <section className="bg-white rounded-lg shadow p-6 mb-8" aria-label="Create new task">
+      <h2 className="text-xl font-semibold mb-4">Create New Task</h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="sr-only" htmlFor="task-title">Title</label>
+          <input
+            id="task-title"
+            type="text"
+            placeholder="Title *"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="border rounded p-2"
+            required
+            aria-required="true"
+          />
+          <label className="sr-only" htmlFor="task-topic">Topic</label>
+          <input
+            id="task-topic"
+            type="text"
+            placeholder="Topic *"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="border rounded p-2"
+            required
+            aria-required="true"
+          />
+          <label className="sr-only" htmlFor="task-due-date">Due Date</label>
+          <input
+            id="task-due-date"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="border rounded p-2"
+            required
+            aria-required="true"
+          />
+          <label className="sr-only" htmlFor="task-status">Status</label>
+          <select
+            id="task-status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as 'Todo' | 'In-Progress' | 'Complete')}
+            className="border rounded p-2"
+            aria-label="Task status"
+          >
+            <option value="Todo">Todo</option>
+            <option value="In-Progress">In-Progress</option>
+            <option value="Complete">Complete</option>
+          </select>
+        </fieldset>
+        <label className="sr-only" htmlFor="task-description">Description</label>
+        <textarea
+          id="task-description"
+          placeholder="Description (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="border rounded p-2 w-full"
+          rows={2}
+          aria-label="Task description"
+        />
+        <button
+          type="submit"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Add Task
+        </button>
+      </form>
+    </section>
+  );
+}
+My TaskItem.tsx: 
+
+'use client';
+import { updateTaskAction, archiveTaskAction } from '../../lib/actions';
+import { isOverdue } from '../../lib/utils';
+import { Task } from '../../lib/tasks';
+
+export function TaskItem({ task, showArchived }: { task: Task; showArchived: boolean }) {
+  async function handleStatusChange() {
+    const nextStatus = task.status === 'Todo' ? 'In-Progress' :
+                       task.status === 'In-Progress' ? 'Complete' : 'Todo';
+    await updateTaskAction(task.id, { status: nextStatus as 'Todo' | 'In-Progress' | 'Complete' });
+  }
+
+  async function handleArchive() {
+    await archiveTaskAction(task.id);
+  }
+
+  return (
+    <li>
+      <article className={`bg-white rounded-lg shadow p-4 border-l-4 ${
+        isOverdue(task) && task.status !== 'Complete'
+          ? 'border-red-500 bg-red-50'
+          : 'border-blue-500'
+      }`}>
+        <header className="flex justify-between items-start">
+          <hgroup className="flex-1">
+            <h3 className="font-semibold text-lg">{task.title}</h3>
+            {task.description && <p className="text-gray-600">{task.description}</p>}
+          </hgroup>
+          <menu className="flex space-x-2">
+            {!showArchived && (
+              <>
+                <button
+                  onClick={handleStatusChange}
+                  className="bg-green-500 hover:bg-green-700 text-white text-sm px-3 py-1 rounded"
+                  aria-label={`Change status of "${task.title}"`}
+                >
+                  {task.status === 'Todo' ? 'Start' :
+                   task.status === 'In-Progress' ? 'Complete' : 'Reset'}
+                </button>
+                <button
+                  onClick={handleArchive}
+                  className="bg-yellow-500 hover:bg-yellow-700 text-white text-sm px-3 py-1 rounded"
+                  aria-label={`Archive "${task.title}"`}
+                >
+                  Archive
+                </button>
+              </>
+            )}
+          </menu>
+        </header>
+        <footer className="flex flex-wrap gap-2 mt-1 text-sm text-gray-500">
+          <time className="text-gray-600" dateTime={task.due_date}>📅 {task.due_date}</time>
+          <span className="sr-only">Topic:</span>
+          <span className="text-gray-600">📂 {task.topic}</span>
+          <span className="sr-only">Status:</span>
+          <span className="text-gray-600">📌 {task.status}</span>
+          {isOverdue(task) && task.status !== 'Complete' && (
+            <strong className="text-red-500 font-bold">⚠️ OVERDUE</strong>
+          )}
+        </footer>
+      </article>
+    </li>
+  );
+}
+My TaskControl.tsx: 
+
+'use client';
+import { useRouter, usePathname } from 'next/navigation';
+
+export function TaskControls({ showArchived, sortBy }: { showArchived: boolean; sortBy: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  function setParam(key: string, value: string) {
+    const params = new URLSearchParams();
+    if (key === 'view') {
+      params.set('view', value);
+      if (sortBy) params.set('sort', sortBy);
+    } else {
+      params.set('sort', value);
+      if (showArchived) params.set('view', 'archived');
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  return (
+    <nav className="flex justify-between items-center mb-4" aria-label="Task controls">
+      <menu className="space-x-2">
+        <button
+          onClick={() => setParam('view', 'active')}
+          className={`px-4 py-2 rounded ${!showArchived ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          aria-pressed={!showArchived}
+        >
+          Active Tasks
+        </button>
+        <button
+          onClick={() => setParam('view', 'archived')}
+          className={`px-4 py-2 rounded ${showArchived ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          aria-pressed={showArchived}
+        >
+          Archived Tasks
+        </button>
+      </menu>
+      <form>
+        <label htmlFor="sortBy" className="mr-2">Sort by:</label>
+        <select
+          id="sortBy"
+          value={sortBy}
+          onChange={(e) => setParam('sort', e.target.value)}
+          className="border rounded p-1"
+        >
+          <option value="topic">Topic</option>
+          <option value="status">Status</option>
+          <option value="due_date">Due Date</option>
+        </select>
+      </form>
+    </nav>
+  );
+}
+My action.ts: 
+
+'use server';
+import { createTask as dbCreateTask, updateTask as dbUpdateTask, archiveTask as dbArchiveTask, Task } from './tasks';
+import { revalidatePath } from 'next/cache';
+
+export async function createTaskAction(data: Omit<Task, 'id' | 'created_at' | 'updated_at'>) {
+  dbCreateTask(data);
+  revalidatePath('/');
+}
+
+export async function updateTaskAction(id: number, updates: Partial<Omit<Task, 'id' | 'created_at' | 'updated_at'>>) {
+  dbUpdateTask(id, updates);
+  revalidatePath('/');
+}
+
+export async function archiveTaskAction(id: number) {
+  dbArchiveTask(id);
+  revalidatePath('/');
+}
+My utils.ts: 
+
+import { Task } from './tasks';
+
+export function isOverdue(task: Task): boolean {
+  if (task.status === 'Complete') return false;
+  return new Date(task.due_date) < new Date();
+}
+Show more
+
+Diagnosed version mismatch causing font import error
+Diagnosed version mismatch causing font import error
+Good news: your restructured code (page.tsx, TaskForm, TaskItem, TaskControls, actions.ts, utils.ts) all looks correct — that's not what's broken. This is a completely separate, unrelated issue in layout.tsx, and it's caused by your earlier npm install next@latest / npm install next@14 juggling.
+
+What happened: create-next-app scaffolded your project with the newer Google Fonts Geist / Geist Mono, which only exist in next/font/google from Next.js 15 onward. When you downgraded to next@14.2.35 (correctly, for better-sqlite3 compatibility), that font no longer exists in the bundled Google Fonts list for that version — hence Unknown font 'Geist'.
+
+Fix — open src/app/layout.tsx and check the top. It probably looks like:
+
+tsx
+import { Geist, Geist_Mono } from "next/font/google";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+Simplest fix — swap to a font that exists in Next 14's font list, e.g. Inter:
+
+tsx
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"] });
+And in the <body> tag, replace className={${geistSans.variable} ${geistMono.variable} antialiased} with className={inter.className}.
+
+You don't need the font at all for this lab (no styling marks riding on it), so you could also just delete the font import entirely and use a plain <body> with no className — one less thing to break.
+
+One more thing in your terminal log worth flagging for later, not urgent now: npm audit reported 2 high severity vulnerabilities after the next@14 react@18 install. Worth running npm audit (not --force, which can silently bump majors again and reopen the version conflict you just fixed) after you're stable, just to see what they are — don't action it mid-lab, just note it for your Third-Party Code doc if it's relevant.
+
+Fix the font import, run npm run dev again, and paste the next error if any — but this should get you to a working page.
+
+Genuinely good that this compiled and ran — but look closely at what happened, because it wasn't actually the clean test you intended, and it's worth understanding why before you count this as verified.
+
+What actually happened: you were already inside ~/Desktop/test-clone, then ran git clone ... test-clone again — which created a nested folder at ~/Desktop/test-clone/test-clone (visible in your prompt: ~/Desktop/test-clone/test-clone). Then cd sdp-todo-app failed with "No such file or directory" — correctly, since you were never in a folder called that. But then npm install and npm run dev ran anyway... from wherever your shell actually was left standing after the failed cd, which — because the cd failed — was still the outer ~/Desktop/test-clone directory, i.e. your previous test clone from last message, which already had node_modules and everything working from before.
+
+So this run didn't test a fresh install at all — it re-ran a project that was already fully set up. That's why it was fast (✓ Ready in 4.6s vs. the 16.8s from your genuinely fresh run last time) and why npm install produced no output shown (nothing new to install).
+
+Do this again, carefully, one command at a time so a failed cd can't silently mask which folder you're actually in:
+
+bash
+cd ~/Desktop
+rm -rf test-clone
+git clone https://github.com/NatashaDobah/sdp-todo-app.git test-clone
+Then check where you landed before doing anything else:
+
+bash
+pwd
+ls
+pwd should show .../Desktop/test-clone, and ls should show your actual project files (package.json, src, lib, docs, README.md, etc.) directly — not another folder to cd into. If ls shows the files directly, you're already in the right place; don't cd into anything else.
+
+bash
+npm install
+npm run dev
+This time, since your last message's run genuinely was a fresh clone/install/compile (that one before this one, with the 16.8s ready time) — that one did count as a real pass. This most recent one just didn't add new information since it accidentally reused old state. So you're not back to square one; you already have one legitimate clean-clone success on record. This retry is just to eliminate the folder-nesting confusion and get a clean, unambiguous second confirmation.
+
+What do I type now: dobah@natasha_dobah MINGW64 ~/Desktop/test-clone/test-clone (main)
+$ cd ~/Desktop
+rm -rf test-clone
+git clone https://github.com/NatashaDobah/sdp-todo-app.git test-clone
+fatal: destination path 'test-clone' already exists and is not an empty directory.
+dobah@natasha_dobah MINGW64 ~/Desktop
+$ rm -rf test-clone
+dobah@natasha_dobah MINGW64 ~/Desktop
+$ git clone https://github.com/NatashaDobah/sdp-todo-app.git test-clone
+Cloning into 'test-clone'...
+remote: Enumerating objects: 122, done.
+remote: Counting objects: 100% (122/122), done.
+remote: Compressing objects: 100% (75/75), done.
+remote: Total 122 (delta 47), reused 108 (delta 33), pack-reused 0 (from 0)
+Receiving objects: 100% (122/122), 212.27 KiB | 3.54 MiB/s, done.
+Resolving deltas: 100% (47/47), done.
+dobah@natasha_dobah MINGW64 ~/Desktop
+$ npm run dev
+npm error code ENOENT
+npm error syscall open
+npm error path C:\Users\dobah\Desktop\package.json
+npm error errno -4058
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open 'C:\Users\dobah\Desktop\package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: C:\Users\dobah\AppData\Local\npm-cache\_logs\2026-08-11T20_35_40_933Z-debug-0.log
+dobah@natasha_dobah MINGW64 ~/Desktop
+$ pwd
+ls
+/c/Users/dobah/Desktop
+'2025 NOV EXAM TIMETABLE.docx'                    'Natasha Dobah Career'/
+'Analysis of Algorithms'/                         'Natasha Dobah MWR Certificate.png'
+ CapCut.lnk*                                      'Operating Systems and System Programming'/
+ CGV/                                             'PARALLEL COMPUTING'/
+'Computer Networking'/                             PowerPoint.lnk*
+ DaVinci_Resolve_20.2.1_Windows.exe*               pratice/
+ desktop.ini                                       project_briefs.pdf
+'Eclipse IDE for Java Developers - 2025-09.lnk'*   Publisher.lnk*
+ fla-2.pdf                                         python/
+'FORMAL LANGUAGES AND AUTOMATA'/                   rockyou.txt
+ get-pip.py*                                       sample/
+'GIMP 3.2.2.lnk'*                                  Scripts/
+ hashcat/                                         'Shortcut to Desktop (OneDrive - Personal).lnk'*
+ hashcat-7.1.2.7z                                  SnakeGame/
+'JAVA PRACTICE'/                                  'Software Design'/
+ john-1.9.0-jumbo-1-win64/                        'Software Design Project'/
+ lab1-html/                                        test-clone/
+ lab2p/                                           'Updated CV.docx'
+ Lib/                                             'Visual Studio Code.lnk'*
+'Machine Learning'/                               'WITS BASKETBALL COMMITTEE AGM AGENDA.docx'
+'MinGW Installer.lnk'*                            'WITS BASKETBALL COMMITTEE.docx'
+'MWR CAPSTONE'/                                    Word.lnk*
+'MWR-REPORT-TEMPLATE-1776808484075 (1).md'        'youtube vlogs'/
+dobah@natasha_dobah MINGW64 ~/Desktop
+$
+
+Show more
+You clone succeeded, but you ran npm run dev from ~/Desktop (visible in ls — it's showing your whole Desktop, not project files), instead of moving into test-clone first. Just missing a cd:
+
+bash
+cd test-clone
+pwd
+ls
+Confirm pwd shows .../Desktop/test-clone and ls shows your project files directly (package.json, src, lib, docs, README.md) — not another nested folder. Once confirmed, then:
+
+bash
+npm install
+npm run dev
+Let that finish and check it says ✓ Ready and compiles clean like your successful run did earlier.
+
+
+
+
+
+
+
+Claude is AI and can make mistakes. Please double-check responses.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
